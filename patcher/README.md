@@ -26,5 +26,11 @@ Creates a patch to upgrade archive from one state to another
 1. learn about the archive and map ALL directories you want to ignore
 1. launch the script:
 ```!bash
+        excluded dirs -----------------------------------+
+	                                                 |
+        desired state -------------------+               |
+	                                 |               |
+        initial state --+                |               |
+	                |                |               |
 	make_patch.sh archive-1.tar.gz archive-2.tar.gz dir1,dir2,dir3
 ```
