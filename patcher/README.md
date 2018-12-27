@@ -11,26 +11,27 @@ Creates a patch to upgrade archive from one state to another
 
 ## Installation:
 
-1. copy `make_patch.bash` and `make_patch.sh` files to PATH (yours or system)
-1. make sure `make_patch.sh` file is executable, e.g. by `chmod +x make_patch.sh`
+1. Clone this repository: `git clone https://github.com/ops-guru/various_scripts.git`
+1. Copy `make_patch.bash` to your/system `PATH` as `make_patch.sh`
+    1. Make the file executable, e.g. by `chmod +x make_patch.sh`
 
 ## Assumptions:
 
-* archive unpacks into 1 directory
-* inside the unpacked directory there may be some directories at the top level you want to ignore
-* script is executed from an empty directory with 2 archives
+* Archive unpacks into 1 directory
+* Inside the unpacked directory there may be some directories at the top level you want to ignore
+* The script is executed from a directory with only 2 archive files
     * **WARNING** other files in current directory will be deleted!
 
 # Usage:
 
-1. learn about the archive and map ALL directories you want to ignore
-1. launch the script:
+1. Learn about the archive and add internal directories you want to ignore to a comma (`,`) separated list
+1. Run the script:
 ```!bash
-        excluded dirs -----------------------------------+
-	                                                 |
-        desired state -------------------+               |
-	                                 |               |
-        initial state --+                |               |
-	                |                |               |
+        excluded dirs ------------------------------------+
+	                                                  |
+        desired state -------------------+                |
+	                                 |                |
+        initial state --+                |                |
+	                |                |                |
 	make_patch.sh archive-1.tar.gz archive-2.tar.gz dir1,dir2,dir3
 ```
