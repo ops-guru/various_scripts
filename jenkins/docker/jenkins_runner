@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+DEBUG="${DEBUG:-0}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-"jenkins/jenkins:local"}"
+CONTAINER_NAME="${CONTAINER_NAME:-"$USER-jenkins"}"
+PORTS_RAW="${PORTS_RAW:-"8080:8080,50000:50000"}"
+JENKINS_LOCAL_VOL_HOME="${JENKINS_LOCAL_VOL_HOME:-"$HOME/jenkins_home"}"
+VOLUMES_RAW="${VOLUMES_RAW:-"$JENKINS_LOCAL_VOL_HOME:/var/jenkins_home"}"
+declare -a CONTAINER_PORTS
+declare -a CONTAINER_VOLUMES
+
+IFS=',' read -r -a CONTAINER_PORTS <<< "${PORTS_RAW}"
+IFS=',' read -r -a CONTAINER_VOLUMES <<< "${VOLUMES_RAW}"
+
+function help() {
+	cat << EOF
+Usage: ${0} [start|stop|kill|status|ps]
+
+EOF
+	return 0
+}
+
+function log.message() {
+	local \
+		prefix \
+		message
+	prefix="${1}"
+	shift
+	message="${@}"
+	[[ "${#prefix}" -gt 0 ]] && [[ "${#message}" -gt 0 ]] && echo -e "${prefix}> ${message}"
+}
+
+function log.debug() {
+	[[ "${DEBUG}" -gt 0 ]] && log.message "DEBUG" "${@}"
+}
+
+function log.warn() {
+	log.message "WARN" "${@}"	
+}
+
+function log.error() {
+	log.message "ERROR" "${@}"	
+}
+
+function log.fatal() {
+	log.message "FATAL" "${@}"	
+}
+
+function log.info() {
+	log.message "INFO" "${@}"
+}
+
+function run_cmd() {
+	local -a cmd
+	cmd=("${@}")
+	log.debug "About to run: '${cmd[*]}'"
+	"${cmd[@]}"	
+}
+
+function get_container_id() {
+	local  \
+		name \
+		image \
+		result
+	name="${1:-"${CONTAINER_NAME}"}"
+	result="$( docker ps -a --filter "name=${name}" --format "{{.ID}}" )"
+	if [[ -n "${result}"  ]]; then
+		echo "${result}"
+		return 0
+	fi
+	result="$( docker ps -a --filter "name=${name}" --filter 'state=exited' --format "{{.ID}}" )"
+	echo "${result}"
+	return 0
+}
+
+function get_container_status() {
+	local containerID
+	containerID="${1?cannot continue without containerID}"
+	docker ps -a --filter "id=${containerID}" --format "{{.Status}}"
+}
+
+function initial_start() {
+	local \
+		name \
+		image
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	image="${2:-"${DOCKER_IMAGE}"}"
+	log.debug "in initial_start(${name}, ${image})"
+	cmd=(docker run)
+	cmd+=('-d')
+	cmd+=('--name' "${name}")
+	for volumes in "${CONTAINER_VOLUMES[@]}"; do cmd+=('-v' "${volumes}"); done
+	for ports in "${CONTAINER_PORTS[@]}"; do cmd+=('-p' "${ports}"); done
+	cmd+=("${image}")
+	run_cmd "${cmd[@]}"
+}
+
+function start() {
+	local \
+		name \
+		image \
+		id
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	image="${2:-"${DOCKER_IMAGE}"}"
+	log.debug "in start(${name})"
+	id=$( get_container_id "${name}" )
+	if [[ -z "${id}" ]]; then
+		log.warn "no containers named ${name} are present"
+		initial_start "${name}" "${image}"
+		return $?
+	fi
+	status=$( get_container_status "${id}" )
+	if [[ "${status}" =~ ^Up.* ]]; then
+		log.warn "Container ${name} is already running with id=${id}"
+		return 0
+	fi
+	cmd=(docker start)
+	cmd+=('--name' "${name}")
+	run_cmd "${cmd[@]}"
+}
+
+function stop() {
+	local \
+		name
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	log.debug "in stop(${name})"
+	cmd=(docker stop)
+	cmd+=('--name' "${name}")
+	run_cmd "${cmd[@]}"
+}
+
+function kill() {
+	local \
+		name \
+		id
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	log.debug "in kill(${name})"
+	id="$( get_container_id "${name}" )"
+	cmd=(docker kill "${id}")
+	run_cmd "${cmd[@]}"
+}
+
+function ps() {
+	local \
+		name \
+		id
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	log.debug "in ps(${name})"
+	cmd=(docker ps -a --filter "name=${name}")
+	run_cmd "${cmd[@]}"
+}
+
+function status() {
+	local \
+		name \
+		id
+	local -a cmd
+	name="${1:-"$CONTAINER_NAME"}"
+	log.debug "in status(${name})"
+	ps "${name}"
+}
+
+
+main() {
+	local \
+		ACTION \
+		retval
+	ACTION="${1}"
+	case "${ACTION}" in
+		start|stop|kill|status|ps) "${ACTION}" "${CONTAINER_NAME}"; retval=$? ;;
+		*) help; retval=$? ;;
+	esac
+	return "${retval}"
+}
+
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "${@}"
+else
+	log.debug "$0 has been sourced"
+fi
